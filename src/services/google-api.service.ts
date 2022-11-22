@@ -1,4 +1,5 @@
-import { google } from 'googleapis';
+import { OAuth2Client } from 'google-auth-library';
+import { google, youtube_v3 } from 'googleapis';
 import config from '../environment/env.config';
 
 class GoogleApiService {
@@ -17,6 +18,34 @@ class GoogleApiService {
     });
 
     public youtube = google.youtube('v3');
+
+    private handleError = (error: unknown) => {
+        throw error;
+    };
+
+    public getToken = async (code: string): Promise<OAuth2Client | undefined> => {
+        try {
+            const { tokens } = await this.oauth2Client.getToken(code );
+            this.oauth2Client.setCredentials(tokens);
+            return this.oauth2Client;
+        } catch (error) {
+            this.handleError(error);
+        }
+    };
+
+    public getSubscriptions = async (): Promise<youtube_v3.Schema$SubscriptionListResponse | undefined> => {
+        try {
+            const response = await this.youtube.subscriptions.list({
+                auth: this.oauth2Client,
+                part: [ 'snippet', 'contentDetails' ],
+                mine: true,
+                maxResults: 50,
+            });
+            return response?.data;
+        } catch (error) {
+            this.handleError(error);
+        }
+    };
 
 }
 

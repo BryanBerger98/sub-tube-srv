@@ -4,6 +4,7 @@ import GoogleApiService from '../services/google-api.service';
 import IController from './types/controller.interface';
 import { Routes } from './types/routes.type';
 import Console from '../services/log.service';
+import { AuthenticationInteractors } from '../domain/authentication';
 
 class AuthController implements IController {
 
@@ -24,7 +25,10 @@ class AuthController implements IController {
         },
     ];
 
-    constructor(private googleApiService: GoogleApiService) {}
+    constructor(
+		private googleApiService: GoogleApiService,
+		private authenticationInteractors: AuthenticationInteractors
+    ) {}
 
     handleLogin(req: Request, res: Response) {
         res.writeHead(301, { 'Location': this.googleApiService.url });
@@ -39,26 +43,11 @@ class AuthController implements IController {
             return res.status(500).json({ error: queryError });
         }
 
-        this.googleApiService.oauth2Client.getToken(code as string)
-            .then(({ tokens }) => {
-                this.googleApiService.oauth2Client.setCredentials(tokens);
-
-                /** Save credential to the global variable in case access token was refreshed.
-			  * ACTION ITEM: In a production app, you likely want to save the refresh token
-			  *              in a secure persistent database instead. */
-                this.userCredential = tokens;
-                this.googleApiService.youtube.subscriptions.list({ auth: this.googleApiService.oauth2Client, part: [ 'snippet', 'contentDetails' ], mine: true, maxResults: 50 }, (err1, res1) => {
-                    if (err1) return Console.logError(`The API returned an error: ${ err1.message }`);
-                    const items = res1?.data.items;
-                    if (items && items.length) {
-                        console.log('Items:', items);
-                    } else {
-                        console.log('No items found.');
-                    }
-                });
-                res.redirect('/');
-            }).catch((error) => {
-                Console.logError(error as object);
+        this.authenticationInteractors.handleOAuthCallbackInteractor.execute(code as string)
+            .then(() => {
+                return res.redirect('/');
+            })
+            .catch(error => {
                 res.status(500).json(error);
             });
     }

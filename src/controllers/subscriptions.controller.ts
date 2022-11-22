@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { SubscriptionsInteractors } from '../domain/subscriptions';
 import GoogleApiService from '../services/google-api.service';
 import Console from '../services/log.service';
 import IController from './types/controller.interface';
@@ -15,26 +16,20 @@ class SubscriptionsController implements IController {
         },
     ];
 
-    constructor(private googleApiService: GoogleApiService) {}
+    constructor(
+		private googleApiService: GoogleApiService,
+		private subscriptionsInteractors: SubscriptionsInteractors
+    ) {}
 
     getSubscriptions(req: Request, res: Response) {
-        this.googleApiService.youtube.subscriptions.list({ auth: this.googleApiService.oauth2Client, part: [ 'snippet' ], maxResults: 50 })
-            .then(response => {
-                const items = response?.data.items;
-                if (items && items.length) {
-                    Console.logMessage('Items:');
-                    Console.logMessage(items as object);
-                } else {
-                    Console.logMessage('No items found.');
-                }
-            }).catch((error) => {
-                const err = <Error>error;
-                Console.logError(`The API returned an error: ${ err.message }`);
-
+        this.subscriptionsInteractors.getSubscriptionsInteractor.execute()
+            .then((subscriptionsData) => {
+                res.status(200).json(subscriptionsData);
+            })
+            .catch(error => {
+                res.status(500).json(error);
             });
-        res.send('Subscriptions');
     }
-
 }
 
 export default SubscriptionsController;
